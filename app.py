@@ -332,7 +332,7 @@ if __name__ == '__main__':
     monitor = VideoRecorderMonitor(poll_interval=poll_interval)  # Poll every X seconds
 
     # Start the Flask app using Werkzeug server in a separate thread
-    flask_port = int(os.environ.get('FLASK_PORT', '8000'))
+    flask_port = int(os.environ.get('FLASK_PORT', '8001'))
     flask_server = FlaskServerThread(app, host='0.0.0.0', port=flask_port)
     flask_server.start()
 

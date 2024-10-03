@@ -117,7 +117,7 @@ The application can be configured using environment variables:
 - **PRIMARY_API_BASE_URL**: Base URL for the Playbox API (default: `https://10.1.83.21:4230`)
 - **DVR_API_BASE_URL**: Base URL for the DVR API (default: `http://10.1.85.53:8080`)
 - **POLL_INTERVAL**: Polling interval in seconds (default: `5`)
-- **FLASK_PORT**: Port for the Flask server (default: `8000`)
+- **FLASK_PORT**: Port for the Flask server (default: `8001`)
 
 You can set these variables in your environment or configure them in the `docker-compose.yml` file.
 
@@ -149,7 +149,7 @@ bash
 
 Copy code
 
-`http://localhost:8000/status`
+`http://localhost:8001/status`
 
 ## **API Endpoints**
 
