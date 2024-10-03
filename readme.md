@@ -1,8 +1,8 @@
-# **Video Recorder Monitor Application**
+# **A Video Recorder Monitor Application**
 
 ## **Overview**
 
-The **Video Recorder Monitor** is a Python application designed to synchronize recording operations between a primary ingest recorder system (referred to as **Playbox**) and a secondary DVR recording system (**MovieRecorder by Softron**). The application monitors active recording jobs on the Playbox system and starts or stops corresponding recordings on the DVR system to ensure redundancy and synchronization.
+This **Video Recorder Monitor** is a Python application designed to synchronize recording operations between a **PlayBox** ingest recorder system and a secondary DVR recording system, in this case its **MovieRecorder by Softron**. The application monitors active recording jobs on the PlayBox system and starts or stops corresponding recordings on the DVR system to ensure redundancy and synchronization.
 
 ## **Table of Contents**
 
