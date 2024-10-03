@@ -8,8 +8,8 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - PRIMARY_API_BASE_URL=https://10.1.83.21:4230
-      - DVR_API_BASE_URL=http://10.1.85.53:8080
+      - PRIMARY_API_BASE_URL=https://IP-of-PLaybox-ingest:4230
+      - DVR_API_BASE_URL=http://ip-of-MovieRecorder:8080
       - POLL_INTERVAL=5
       - FLASK_PORT=8001
     volumes:

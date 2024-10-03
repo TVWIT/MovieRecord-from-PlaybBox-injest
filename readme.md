@@ -88,21 +88,19 @@ The application consists of the following components:
 
 ### **Clone the Repository**
 
-bash
 
-Copy code
 
-`git clone https://github.com/yourusername/video-recorder-monitor.git`
+`git clone https://github.com/TVWIT/video-recorder-monitor.git`
 
 `cd video-recorder-monitor`
+
+
 
 ### **Install Dependencies**
 
 #### **Option 1: Running Locally**
 
-bash
 
-Copy code
 
 `pip install -r requirements.txt`
 
@@ -114,8 +112,8 @@ No manual installation is needed; Docker will handle dependencies.
 
 The application can be configured using environment variables:
 
-- **PRIMARY_API_BASE_URL**: Base URL for the Playbox API (default: `https://10.1.83.21:4230`)
-- **DVR_API_BASE_URL**: Base URL for the DVR API (default: `http://10.1.85.53:8080`)
+- **PRIMARY_API_BASE_URL**: Base URL for the Playbox API (default: `https://{{IP-of-PLaybox-ingest}}:4230`)
+- **DVR_API_BASE_URL**: Base URL for the DVR API (default: `http://{{ip-of-MovieRecorder}}:8080`)
 - **POLL_INTERVAL**: Polling interval in seconds (default: `5`)
 - **FLASK_PORT**: Port for the Flask server (default: `8001`)
 
@@ -125,9 +123,6 @@ You can set these variables in your environment or configure them in the `docker
 
 ### **Running Locally**
 
-bash
-
-Copy code
 
 `python app.py`
 
@@ -135,9 +130,6 @@ Copy code
 
 Build and run the application using Docker Compose:
 
-bash
-
-Copy code
 
 `docker-compose up -d`
 
@@ -145,11 +137,8 @@ Copy code
 
 Visit the following URL to access the current recording status:
 
-bash
 
-Copy code
-
-`http://localhost:8001/status`
+`http://{{ip-of-host}}:8001/status`
 
 ## **API Endpoints**
 
@@ -175,25 +164,17 @@ Logs are written to both the console and a log file located at `logs/app.log`. T
 ### **Docker Deployment**
 
 **Build the Docker Image**  
-bash  
-Copy code  
+
 `docker-compose build`
 
-1.
-
 **Run the Docker Container**  
-bash  
-Copy code  
+
 `docker-compose up -d`
 
-2.
-
 **Check Running Containers**  
-bash  
-Copy code  
+
 `docker ps`
 
-3.
 
 ### **Environment Variables**
 
@@ -225,41 +206,31 @@ Contributions are welcome\! Please submit a pull request or open an issue to dis
 ### **Development Setup**
 
 **Clone the Repository**  
-bash  
-Copy code  
-`git clone https://github.com/yourusername/video-recorder-monitor.git`
+ 
+`git clone https://github.com/TVWIT/video-recorder-monitor.git`
 
 `cd video-recorder-monitor`
 
-1.
 
 **Create a Virtual Environment**  
-bash  
-Copy code  
+ 
 `python -m venv venv`
 
 `` source venv/bin/activate  # On Windows use `venv\Scripts\activate` ``
 
-2.
 
 **Install Dependencies**  
-bash  
-Copy code  
+
 `pip install -r requirements.txt`
 
-3.
 
 **Run the Application**  
-bash  
-Copy code  
+
 `python app.py`
 
-4.
 
 ## **License**
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License. 
 
 ---
-
-_For any questions or support, please contact yourname@yourdomain.com._
