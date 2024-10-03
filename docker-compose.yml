@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  video-recorder-monitor:
+    image: video-recorder-monitor:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PRIMARY_API_BASE_URL=https://10.1.83.21:4230
+      - DVR_API_BASE_URL=http://10.1.85.53:8080
+      - POLL_INTERVAL=5
+      - FLASK_PORT=8000
+    volumes:
+      - ./logs:/app/logs
+      - ./state:/app/state
