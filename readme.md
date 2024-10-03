@@ -20,7 +20,7 @@ The **Video Recorder Monitor** is a Python application designed to synchronize r
   - Running with Docker Compose
   - Accessing the Status Endpoint
 - API Endpoints
-  - Playbox API (Initial API to the Juju's System)
+  - Playbox API (Initial API to the ingest System)
   - DVR API (MovieRecorder by Softron)
 - Logging
 - Deployment
