@@ -1,0 +1,165 @@
+name: Deploy to Production Swarm
+
+on:
+  push:
+    branches:
+      - main                          # Auto-deploy when pushing to main
+  workflow_dispatch:                  # Allow manual trigger from GitHub UI
+
+env:
+  IMAGE_NAME: scottftvw/${{ github.event.repository.name }}
+  STACK_NAME: ${{ github.event.repository.name }}
+  SWARM_HOST: 10.1.81.50
+  SWARM_USER: ubuntu
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: true       # Don't fail if no linter configured
+
+      - name: Run tests
+        run: npm test
+
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test                       # Only build if tests pass
+    outputs:
+      image-tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
+
+      - name: Image digest
+        run: echo "Built and pushed ${{ steps.meta.outputs.tags }}"
+
+  deploy:
+    name: Deploy to Docker Swarm
+    runs-on: ubuntu-latest
+    needs: build-and-push              # Only deploy if build succeeds
+    environment:
+      name: production
+      url: http://${{ env.STACK_NAME }}.local.tvw.org
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SWARM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.SWARM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy stack file to swarm node
+        run: |
+          scp stack.yml ${{ env.SWARM_USER }}@${{ env.SWARM_HOST }}:/tmp/${{ env.STACK_NAME }}-stack.yml
+
+      - name: Deploy stack to swarm
+        id: deploy
+        run: |
+          ssh ${{ env.SWARM_USER }}@${{ env.SWARM_HOST }} \
+            "sudo docker stack deploy -c /tmp/${{ env.STACK_NAME }}-stack.yml ${{ env.STACK_NAME }}"
+
+      - name: Wait for services to start
+        run: sleep 15
+
+      - name: Check deployment status
+        run: |
+          echo "=== Service Status ==="
+          ssh ${{ env.SWARM_USER }}@${{ env.SWARM_HOST }} \
+            "sudo docker service ls --filter name=${{ env.STACK_NAME }}"
+
+      - name: Check service health
+        id: health-check
+        run: |
+          echo "=== Checking service replicas ==="
+          REPLICAS=$(ssh ${{ env.SWARM_USER }}@${{ env.SWARM_HOST }} \
+            "sudo docker service ls --filter name=${{ env.STACK_NAME }} --format '{{.Name}}: {{.Replicas}}'")
+          echo "$REPLICAS"
+
+          # Check if any service has 0/X replicas (failed)
+          if echo "$REPLICAS" | grep -q "0/"; then
+            echo "❌ Some services failed to start"
+            exit 1
+          fi
+          echo "✅ All services started successfully"
+
+      - name: Show recent logs
+        if: always()
+        run: |
+          echo "=== Recent Logs ==="
+          ssh ${{ env.SWARM_USER }}@${{ env.SWARM_HOST }} \
+            "sudo docker service logs ${{ env.STACK_NAME }}_app --tail 30" || true
+
+      - name: Rollback on failure
+        if: failure() && steps.deploy.outcome == 'success'
+        run: |
+          echo "⚠️ Deployment health check failed, rolling back..."
+          ssh ${{ env.SWARM_USER }}@${{ env.SWARM_HOST }} \
+            "sudo docker service update --rollback ${{ env.STACK_NAME }}_app"
+
+  notify:
+    name: Send Notification
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+    steps:
+      - name: Deployment Success
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Application: ${{ env.STACK_NAME }}"
+          echo "URL: http://${{ env.STACK_NAME }}.local.tvw.org"
+
+      - name: Deployment Failed
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Application: ${{ env.STACK_NAME }}"
+          exit 1
