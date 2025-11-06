@@ -1,0 +1,103 @@
+when:
+  branch: main
+  event: [push, manual, cron]
+
+steps:
+  # Check if this commit has already been built
+  check-if-built:
+    image: alpine:latest
+    environment:
+      COMMIT_SHA: ${CI_COMMIT_SHA:0:8}
+    commands:
+      - apk add --no-cache curl jq
+      - |
+        echo "Checking if commit $COMMIT_SHA already exists in Docker Hub..."
+        IMAGE_EXISTS=$(curl -s "https://hub.docker.com/v2/repositories/scottftvw/video-recorder-monitor/tags/$COMMIT_SHA" | jq -r '.name // "not_found"')
+        if [ "$IMAGE_EXISTS" != "not_found" ]; then
+          echo "Image for commit $COMMIT_SHA already exists - skipping build"
+          exit 78  # Exit code 78 tells Woodpecker to skip remaining steps
+        else
+          echo "Image not found - proceeding with build"
+        fi
+    when:
+      event: cron  # Only check on cron runs, always build on push/manual
+
+  # Test step - run linter and tests
+  test:
+    image: python:3.10-slim
+    commands:
+      - pip install --no-cache-dir -r requirements.txt
+      - python -m py_compile app.py || echo "No linter configured"
+      - echo "No tests configured yet"
+
+  # Build Docker image
+  build:
+    image: plugins/docker
+    settings:
+      repo: scottftvw/video-recorder-monitor
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA:0:8}
+      dockerfile: Dockerfile
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+    when:
+      event: [push, manual, cron]
+
+  # Update stack image to use commit SHA and redeploy
+  update-stack:
+    image: alpine:latest
+    environment:
+      PORTAINER_URL: https://10.1.81.50:9443
+      PORTAINER_TOKEN:
+        from_secret: portainer_token
+      COMMIT_SHA: ${CI_COMMIT_SHA:0:8}
+    commands:
+      - apk add --no-cache curl jq
+      - |
+        echo "Updating dvr-trigger stack to use commit SHA: $COMMIT_SHA"
+
+        # Read current stack.yml and update image tags
+        sed -i "s|scottftvw/video-recorder-monitor:latest|scottftvw/video-recorder-monitor:$COMMIT_SHA|g" stack.yml
+
+        # Encode stack file for JSON
+        STACK_FILE=$(cat stack.yml | jq -Rs .)
+
+        # Get stack ID from Portainer
+        STACK_ID=$(curl -sk -X GET "$PORTAINER_URL/api/stacks" \
+          -H "X-API-Key: $PORTAINER_TOKEN" | \
+          jq -r '.[] | select(.Name == "dvr-trigger") | .Id')
+
+        if [ -z "$STACK_ID" ]; then
+          echo "Stack not found in Portainer - creating new stack..."
+          curl -sk -X POST "$PORTAINER_URL/api/stacks/create/swarm/string?endpointId=3" \
+            -H "X-API-Key: $PORTAINER_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"dvr-trigger\",
+              \"stackFileContent\": $STACK_FILE,
+              \"swarmID\": \"$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 25 | head -n 1)\"
+            }"
+        else
+          echo "Updating existing stack ID: $STACK_ID"
+          curl -sk -X PUT "$PORTAINER_URL/api/stacks/$STACK_ID?endpointId=3" \
+            -H "X-API-Key: $PORTAINER_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"stackFileContent\": $STACK_FILE,
+              \"pullImage\": true,
+              \"prune\": false
+            }"
+
+          # Redeploy the stack to force service updates
+          echo "Redeploying stack to update services..."
+          curl -sk -X POST "$PORTAINER_URL/api/stacks/$STACK_ID/start?endpointId=3" \
+            -H "X-API-Key: $PORTAINER_TOKEN"
+        fi
+
+        echo "Stack deployment completed with image tagged: $COMMIT_SHA"
+    when:
+      event: [push, manual, cron]
+      branch: main

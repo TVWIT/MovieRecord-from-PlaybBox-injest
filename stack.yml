@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  dvr-monitor:
+    image: scottftvw/video-recorder-monitor:latest
+    environment:
+      # API Endpoints (update if needed)
+      - PRIMARY_API_URL=http://10.1.83.21:4230
+      - DVR_API_URL=http://10.1.85.53:8080
+
+      # Logging
+      - LOG_LEVEL=info
+
+      # Monitoring interval (milliseconds)
+      - CHECK_INTERVAL=60000
+
+    volumes:
+      - dvr-logs:/app/logs
+      - dvr-state:/app/state
+
+    networks:
+      - dvr-network
+
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      # No Traefik labels - this is a background monitoring service with no web UI
+
+volumes:
+  dvr-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/cephfs/swarm-volumes/dvr-trigger/logs
+
+  dvr-state:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/cephfs/swarm-volumes/dvr-trigger/state
+
+networks:
+  dvr-network:
+    driver: overlay
