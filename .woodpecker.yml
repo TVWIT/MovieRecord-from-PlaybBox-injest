@@ -78,7 +78,7 @@ steps:
             -d "{
               \"name\": \"dvr-trigger\",
               \"stackFileContent\": $STACK_FILE,
-              \"swarmID\": \"$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 25 | head -n 1)\"
+              \"swarmID\": \"do6jekgx7mp417q61wuol04nf\"
             }"
         else
           echo "Updating existing stack ID: $STACK_ID"
