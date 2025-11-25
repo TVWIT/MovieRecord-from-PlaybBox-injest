@@ -72,7 +72,7 @@ steps:
 
         if [ -z "$STACK_ID" ]; then
           echo "Stack not found in Portainer - creating new stack..."
-          curl -sk -X POST "$PORTAINER_URL/api/stacks/create/swarm/string?endpointId=3" \
+          curl -sk -X POST "$PORTAINER_URL/api/stacks/create/swarm/string?endpointId=1" \
             -H "X-API-Key: $PORTAINER_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{
@@ -82,7 +82,7 @@ steps:
             }"
         else
           echo "Updating existing stack ID: $STACK_ID"
-          curl -sk -X PUT "$PORTAINER_URL/api/stacks/$STACK_ID?endpointId=3" \
+          curl -sk -X PUT "$PORTAINER_URL/api/stacks/$STACK_ID?endpointId=1" \
             -H "X-API-Key: $PORTAINER_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{
@@ -93,7 +93,7 @@ steps:
 
           # Redeploy the stack to force service updates
           echo "Redeploying stack to update services..."
-          curl -sk -X POST "$PORTAINER_URL/api/stacks/$STACK_ID/start?endpointId=3" \
+          curl -sk -X POST "$PORTAINER_URL/api/stacks/$STACK_ID/start?endpointId=1" \
             -H "X-API-Key: $PORTAINER_TOKEN"
         fi
 
