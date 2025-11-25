@@ -50,7 +50,7 @@ steps:
   update-stack:
     image: alpine:latest
     environment:
-      PORTAINER_URL: https://10.1.81.50:9443
+      PORTAINER_URL: https://10.1.81.52:9443
       PORTAINER_TOKEN:
         from_secret: portainer_token
       COMMIT_SHA: ${CI_COMMIT_SHA:0:8}
