@@ -46,58 +46,28 @@ steps:
     when:
       event: [push, manual, cron]
 
-  # Update stack image to use commit SHA and redeploy
-  update-stack:
-    image: alpine:latest
+  # Deploy to Kubernetes via Portainer API
+  deploy:
+    image: curlimages/curl
     environment:
-      PORTAINER_URL: https://10.1.81.52:9443
-      PORTAINER_TOKEN:
-        from_secret: portainer_token
-      COMMIT_SHA: ${CI_COMMIT_SHA:0:8}
+      PORTAINER_URL: https://10.1.81.51:30943
+      PORTAINER_ENDPOINT_ID: 1
+      K8S_NAMESPACE: tvw
+      K8S_DEPLOYMENT: dvr-trigger
+    secrets: [portainer_token]
     commands:
-      - apk add --no-cache curl jq
-      - |
-        echo "Updating dvr-trigger stack to use commit SHA: $COMMIT_SHA"
-
-        # Read current stack.yml and update image tags
-        sed -i "s|scottftvw/video-recorder-monitor:latest|scottftvw/video-recorder-monitor:$COMMIT_SHA|g" stack.yml
-
-        # Encode stack file for JSON
-        STACK_FILE=$(cat stack.yml | jq -Rs .)
-
-        # Get stack ID from Portainer
-        STACK_ID=$(curl -sk -X GET "$PORTAINER_URL/api/stacks" \
-          -H "X-API-Key: $PORTAINER_TOKEN" | \
-          jq -r '.[] | select(.Name == "dvr-trigger") | .Id')
-
-        if [ -z "$STACK_ID" ]; then
-          echo "Stack not found in Portainer - creating new stack..."
-          curl -sk -X POST "$PORTAINER_URL/api/stacks/create/swarm/string?endpointId=1" \
-            -H "X-API-Key: $PORTAINER_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"name\": \"dvr-trigger\",
-              \"stackFileContent\": $STACK_FILE,
-              \"swarmID\": \"do6jekgx7mp417q61wuol04nf\"
-            }"
-        else
-          echo "Updating existing stack ID: $STACK_ID"
-          curl -sk -X PUT "$PORTAINER_URL/api/stacks/$STACK_ID?endpointId=1" \
-            -H "X-API-Key: $PORTAINER_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"stackFileContent\": $STACK_FILE,
-              \"pullImage\": true,
-              \"prune\": false
-            }"
-
-          # Redeploy the stack to force service updates
-          echo "Redeploying stack to update services..."
-          curl -sk -X POST "$PORTAINER_URL/api/stacks/$STACK_ID/start?endpointId=1" \
-            -H "X-API-Key: $PORTAINER_TOKEN"
-        fi
-
-        echo "Stack deployment completed with image tagged: $COMMIT_SHA"
+      - >-
+        curl -sk -X PATCH
+        -H "X-API-Key: $PORTAINER_TOKEN"
+        -H "Content-Type: application/strategic-merge-patch+json"
+        -d "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"ci.woodpecker/redeploy-timestamp\":\"$(date +%s)\"}}}}}"
+        "$PORTAINER_URL/api/endpoints/$PORTAINER_ENDPOINT_ID/kubernetes/apis/apps/v1/namespaces/$K8S_NAMESPACE/deployments/$K8S_DEPLOYMENT"
+      - sleep 10
+      - >-
+        curl -sk
+        -H "X-API-Key: $PORTAINER_TOKEN"
+        "$PORTAINER_URL/api/endpoints/$PORTAINER_ENDPOINT_ID/kubernetes/apis/apps/v1/namespaces/$K8S_NAMESPACE/deployments/$K8S_DEPLOYMENT"
+        | grep -o '"availableReplicas":[0-9]*' || echo "Waiting for rollout..."
     when:
       event: [push, manual, cron]
       branch: main
